@@ -30,11 +30,7 @@ contract CompatibilityFallbackHandler is TokenCallbackHandler, ISignatureValidat
         Safe safe = Safe(payable(msg.sender));  
         bytes memory messageData = encodeMessageDataForSafe(safe, _data);  
         bytes32 messageHash = keccak256(messageData);  
-        if (_signature.length == 0) {  
-            require(safe.signedMessages(messageHash) != 0, "Hash not approved");  
-        } else {  
-            safe.checkSignatures(messageHash, messageData, _signature);  
-        }  
+        safe.checkSignatures(messageHash, messageData, _signature);  
         return EIP1271_MAGIC_VALUE;  
     }  
 

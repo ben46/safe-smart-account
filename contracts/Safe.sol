@@ -26,7 +26,7 @@ import "./base/Executor.sol";
  */
 // 一共需要部署两个合约
 // 一个是safe.sol 或者 safeL2.sol
-// 另一个是CompatibilityFallbackHandler.sol
+// 另一个是CompatibilityFallbackHandler.sol(这个我们暂时用不到, 因为我们的owner都是EOA钱包)
 contract Safe is
     Executor,
     OwnerManager,
@@ -53,7 +53,6 @@ contract Safe is
     // 状态变量
     uint256 public nonce;
     bytes32 private _deprecatedDomainSeparator;
-    mapping(bytes32 => uint256) public signedMessages; // 映射跟踪所有被所有者签名的消息哈希
     mapping(address => mapping(bytes32 => uint256)) public approvedHashes; // 映射跟踪任何所有者批准的所有哈希
 
     // 构造函数，确保该合约只能作为代理合约的singleton使用
@@ -106,20 +105,21 @@ contract Safe is
      */
     function execTransaction(
         address to,
-        uint256 value,
-        bytes calldata data,
-        Enum.Operation operation,
+        uint256 value, // eth value
+        bytes calldata data, // calldata
+        Enum.Operation operation, // call or delegate call
         uint256 safeTxGas, // 填写0就可以
-        uint256 baseGas,
+        uint256 baseGas, // 忽略
         uint256 gasPrice,// 忽略
-        address gasToken,
-        address payable refundReceiver,
-        bytes memory signatures
+        address gasToken, // 忽略
+        address payable refundReceiver, // 忽略
+        bytes memory signatures // 签名必须按照onwer地址从小到大排列
     ) public payable virtual returns (bool success) {
         bytes32 txHash;
 
         // 限制变量生命周期以防止`stack too deep`错误
         {
+            // 这里的签名, 是对什么的签名?
             bytes memory txHashData = encodeTransactionData(
                 to,
                 value,
@@ -131,9 +131,10 @@ contract Safe is
                 gasToken,
                 refundReceiver,
                 nonce
-            );
+            ); // 根据nonce && data 生成交易哈希, 所以不会有重复的hash, 也就不会有重复的签名, 因此防止了重放攻击
             nonce++; // 增加随机数并执行交易
             txHash = keccak256(txHashData);
+            // 这里会遍历检查签名, 签名必须按照onwer地址从小到大排列
             checkSignatures(txHash, txHashData, signatures); // 检查签名
         }
 
@@ -184,7 +185,7 @@ contract Safe is
      */  
     function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures) public view {  
         // 检查提供的签名数据是否太短  
-        require(signatures.length >= requiredSignatures.mul(65), "GS020");  
+        require(signatures.length >= requiredSignatures.mul(65), "GS020");
         // 地址为 0 的所有者是不可接受的。  
         address lastOwner = address(0);  
         address currentOwner;  
@@ -230,11 +231,13 @@ contract Safe is
                 currentOwner = address(uint160(uint256(r)));  
                 // 消息的发送者或通过单独交易预先批准的哈希自动获得批准  
                 require(msg.sender == currentOwner || approvedHashes[currentOwner][dataHash] != 0, "GS025");  
-            } else if (v > 30) {  
+            } else if (v > 30) {
+                // json-rpc 签名 , 调用的eth_sign
                 // 如果 v > 30，则默认 va（27,28）已针对 eth_sign 流进行了调整  
                 // 为了支持 eth_sign 和类似功能，我们调整 v 并在应用 ecrecover 之前对 messageHash 进行哈希处理  
                 currentOwner = ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash)), v - 4, r, s);  
             } else {  
+                // metamask 签名
                 // 默认是使用提供的数据哈希的 ecrecover 流  
                 // 对于 EOA 签名，使用 messageHash 执行 ecrecover  
                 currentOwner = ecrecover(dataHash, v, r, s);  
