@@ -24,6 +24,9 @@ import "./base/Executor.sol";
  *      注意：这个实现版本的合约不发出事件以节省gas，因此需要一个跟踪节点进行索引。
  *      请参见`SafeL2.sol`获取基于事件的实现。
  */
+// 一共需要部署两个合约
+// 一个是safe.sol 或者 safeL2.sol
+// 另一个是CompatibilityFallbackHandler.sol
 contract Safe is
     Executor,
     OwnerManager,
@@ -81,9 +84,6 @@ contract Safe is
         address payable paymentReceiver
     ) external {
         setupOwners(_owners, _threshold); // setupOwners检查阈值是否已设置，从而防止该方法被调用两次
-        // if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
-        // setupModules(to, data); // setupModules仅在合约未初始化时调用，因此不需要检查
-
         if (payment > 0) {
         }
         emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler); // 触发事件
