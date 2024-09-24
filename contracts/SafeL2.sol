@@ -61,14 +61,14 @@ contract SafeL2 is Safe {
         return super.execTransaction(to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures);
     }
 
-    // @inheritdoc Safe
-    function execTransactionFromModule(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation
-    ) public override returns (bool success) {
-        emit SafeModuleTransaction(msg.sender, to, value, data, operation);
-        success = super.execTransactionFromModule(to, value, data, operation);
-    }
+    // // @inheritdoc Safe
+    // function execTransactionFromModule(
+    //     address to,
+    //     uint256 value,
+    //     bytes memory data,
+    //     Enum.Operation operation
+    // ) public override returns (bool success) {
+    //     emit SafeModuleTransaction(msg.sender, to, value, data, operation);
+    //     success = super.execTransactionFromModule(to, value, data, operation);
+    // }
 }

@@ -14,9 +14,37 @@ abstract contract OwnerManager is SelfAuthorized {
     event RemovedOwner(address indexed owner);  
     event ChangedThreshold(uint256 threshold);  
 
+    //SENTINEL_OWNERS 在这段代码中是一个特殊的地址常量，用作链表的哨兵节点。它的主要作用是简化链表操作并提高代码的健壮性。让我解释一下它的具体用途：
+    //SENTINEL_OWNERS 被用作所有者链表的起始点。在 setupOwners 函数中，第一个真实所有者被设置为 SENTINEL_OWNERS 的下一个节点。
+    //在遍历所有者时（如 getOwners 函数），SENTINEL_OWNERS 用作循环的终止条件。当遍历到 SENTINEL_OWNERS 时，表示已经遍历完所有真实的所有者。
+    //代码中多次检查确保新添加的所有者地址不等于 SENTINEL_OWNERS，这防止了将这个特殊地址误用为实际所有者。
+    //使用 SENTINEL_OWNERS 作为链表的头节点，可以简化在链表开头添加或删除节点的操作，无需特殊处理第一个元素。
+    //在 isOwner 函数中，通过检查地址是否为 SENTINEL_OWNERS 来快速排除这个特殊地址。
+    //通过使用这个哨兵节点（SENTINEL_OWNERS），代码可以更简洁地处理链表操作，尤其是在处理边界情况（如空列表或只有一个所有者）时。这种方法提高了代码的可读性和维护性，同时也减少了潜在的错误。
     address internal constant SENTINEL_OWNERS = address(0x1);  
-
-    mapping(address => address) internal owners;  
+    // 链表结构示意  
+    // SENTINEL_OWNERS -> Owner A -> Owner B -> Owner C -> SENTINEL_OWNERS  
+    // 具体结构  
+    // SENTINEL_OWNERS  
+    //      |  
+    //      v  
+    //   +--------+  
+    //   | Owner A|  
+    //   +--------+  
+    //      |  
+    //      v  
+    //   +--------+  
+    //   | Owner B|  
+    //   +--------+  
+    //      |  
+    //      v  
+    //   +--------+  
+    //   | Owner C|  
+    //   +--------+  
+    //      |  
+    //      v  
+    // SENTINEL_OWNERS  
+    mapping(address => address) internal owners;  // 链表结构
     uint256 internal ownerCount;  
     uint256 internal threshold;  
 

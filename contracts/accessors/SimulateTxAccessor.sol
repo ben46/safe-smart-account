@@ -20,7 +20,7 @@ contract SimulateTxAccessor is Executor {
      * 如果通过常规调用调用该函数，则将会回滚。
      */
     modifier onlyDelegateCall() {
-        require(address(this) != accessorSingleton, "SimulateTxAccessor 应仅通过 delegatecall 调用");
+        require(address(this) != accessorSingleton, "SimulateTxAccessor should only be called via delegatecall");
         _;
     }
 

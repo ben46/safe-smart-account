@@ -2,17 +2,13 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 // 导入依赖的库和合约
-import "./base/ModuleManager.sol";
+// import "./base/ModuleManager.sol";
 import "./base/OwnerManager.sol";
-import "./base/FallbackManager.sol";
-import "./base/GuardManager.sol";
-import "./common/NativeCurrencyPaymentFallback.sol";
-import "./common/Singleton.sol";
 import "./common/SignatureDecoder.sol";
-import "./common/SecuredTokenTransfer.sol";
-import "./common/StorageAccessible.sol";
+// import "./common/StorageAccessible.sol";
 import "./interfaces/ISignatureValidator.sol";
 import "./external/SafeMath.sol";
+import "./base/Executor.sol";
 
 /**
  * @title Safe - 一个支持基于EIP-712签名消息确认的多重签名钱包
@@ -29,16 +25,10 @@ import "./external/SafeMath.sol";
  *      请参见`SafeL2.sol`获取基于事件的实现。
  */
 contract Safe is
-    Singleton,
-    NativeCurrencyPaymentFallback,
-    ModuleManager,
+    Executor,
     OwnerManager,
     SignatureDecoder,
-    SecuredTokenTransfer,
-    ISignatureValidatorConstants,
-    FallbackManager,
-    StorageAccessible,
-    GuardManager
+    ISignatureValidatorConstants
 {
     using SafeMath for uint256;
 
@@ -91,11 +81,10 @@ contract Safe is
         address payable paymentReceiver
     ) external {
         setupOwners(_owners, _threshold); // setupOwners检查阈值是否已设置，从而防止该方法被调用两次
-        if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
-        setupModules(to, data); // setupModules仅在合约未初始化时调用，因此不需要检查
+        // if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
+        // setupModules(to, data); // setupModules仅在合约未初始化时调用，因此不需要检查
 
         if (payment > 0) {
-            handlePayment(payment, 0, 1, paymentToken, paymentReceiver); // 处理付款
         }
         emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler); // 触发事件
     }
@@ -120,9 +109,9 @@ contract Safe is
         uint256 value,
         bytes calldata data,
         Enum.Operation operation,
-        uint256 safeTxGas,
+        uint256 safeTxGas, // 填写0就可以
         uint256 baseGas,
-        uint256 gasPrice,
+        uint256 gasPrice,// 忽略
         address gasToken,
         address payable refundReceiver,
         bytes memory signatures
@@ -148,80 +137,26 @@ contract Safe is
             checkSignatures(txHash, txHashData, signatures); // 检查签名
         }
 
-        address guard = getGuard();
-        {
-            if (guard != address(0)) {
-                Guard(guard).checkTransaction(
-                    to,
-                    value,
-                    data,
-                    operation,
-                    safeTxGas,
-                    baseGas,
-                    gasPrice,
-                    gasToken,
-                    refundReceiver,
-                    signatures,
-                    msg.sender
-                );
-            }
-        }
-        // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (500)
-        // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
-        require(gasleft() >= ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 500, "GS010");
-        // Use scope here to limit variable lifetime and prevent `stack too deep` errors
-        {
-            uint256 gasUsed = gasleft();
-            // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
-            // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
-            success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
-            gasUsed = gasUsed.sub(gasleft());
-            // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
-            // This makes it possible to use `estimateGas` without issues, as it searches for the minimum gas where the tx doesn't revert
-            require(success || safeTxGas != 0 || gasPrice != 0, "GS013");
-            // We transfer the calculated tx costs to the tx.origin to avoid sending it to intermediate contracts that have made calls
-            uint256 payment = 0;
-            if (gasPrice > 0) {
-                payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
-            }
-            if (success) emit ExecutionSuccess(txHash, payment);
-            else emit ExecutionFailure(txHash, payment);
-        }
-        {
-            if (guard != address(0)) {
-                Guard(guard).checkAfterExecution(txHash, success);
-            }
-        }
-    }
+        // 使用作用域来限制变量生命周期以防止`stack too deep`错误  
+        // Use scope here to limit variable lifetime and prevent `stack too deep` errors  
+        {  
+            // 如果gasPrice为0，我们假设几乎所有可用gas都可以使用（总是多于safeTxGas）  
+            // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)  
+            // 我们仅减少2500（对比以前3000）保证传递的值仍高于safeTxGas  
+            // We only subtract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas  
+            success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);  
 
-    /**
-     * @notice 处理Safe交易的付款。
-     * @param gasUsed Safe交易使用的gas量。
-     * @param baseGas 与交易执行无关的gas成本（如基本交易费用、签名检查、     
-     * 退款支付)。
-     * @param gasPrice 用于支付gas的价格。
-     * @param gasToken 用于支付的代币地址（或0表示ETH）。
-     * @param refundReceiver 接收付款的地址（或tx.origin）。
-     * @return payment 计算出的付款金额。
-     */
-    function handlePayment(  
-        uint256 gasUsed,  
-        uint256 baseGas,  
-        uint256 gasPrice,  
-        address gasToken,  
-        address payable refundReceiver  
-    ) private returns (uint256 payment) {  
-        // solhint-disable-next-line avoid-tx-origin  
-        address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;  
-        if (gasToken == address(0)) {  
-            // 对于 ETH，我们只会调整 gas 价格，以确保不高于实际使用的 gas 价格  
-            payment = gasUsed.add(baseGas).mul(gasPrice < tx.gasprice ? gasPrice : tx.gasprice);  
-            require(receiver.send(payment), "GS011");  
-        } else {  
-            payment = gasUsed.add(baseGas).mul(gasPrice);  
-            require(transferToken(gasToken, receiver, payment), "GS012");  
+            // 如果safeTxGas和gasPrice未设置（例如均为0），则内部交易需要成功  
+            // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful  
+            // 这使得能够使用`estimateGas`，因为它寻找交易不恢复的最小gas  
+            // This makes it possible to use `estimateGas` without issues, as it searches for the minimum gas where the tx doesn't revert  
+            require(success || safeTxGas != 0 || gasPrice != 0, "GS013");  
+
+            uint256 payment = 0;  
+            if (success) emit ExecutionSuccess(txHash, payment);  
+            else emit ExecutionFailure(txHash, payment);  
         }  
-    }
+    }  
 
     /**  
      * @notice 检查提供的签名是否对提供的数据和哈希有效。否则，抛出错误。  

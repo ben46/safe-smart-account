@@ -84,12 +84,12 @@ contract CompatibilityFallbackHandler is TokenCallbackHandler, ISignatureValidat
      * @dev 返回前 10 个模块的数组。  
      * @return 模块数组。  
      */  
-    function getModules() external view returns (address[] memory) {  
-        // 调用者应为安全合约  
-        Safe safe = Safe(payable(msg.sender));  
-        (address[] memory array, ) = safe.getModulesPaginated(SENTINEL_MODULES, 10);  
-        return array;  
-    }  
+    // function getModules() external view returns (address[] memory) {  
+    //     // 调用者应为安全合约  
+    //     Safe safe = Safe(payable(msg.sender));  
+    //     (address[] memory array, ) = safe.getModulesPaginated(SENTINEL_MODULES, 10);  
+    //     return array;  
+    // }  
 
     /**  
      * @dev 在自我的上下文中对目标合约执行 delegatecall。  
