@@ -28,10 +28,10 @@ import "./base/Executor.sol";
 // 一个是safe.sol 或者 safeL2.sol
 // 另一个是CompatibilityFallbackHandler.sol(这个我们暂时用不到, 因为我们的owner都是EOA钱包)
 contract Safe is
-    Executor,
+    Executor, // execute
     OwnerManager,
-    SignatureDecoder,
-    ISignatureValidatorConstants
+    SignatureDecoder,//signatureSplit
+    ISignatureValidatorConstants // EIP1271_MAGIC_VALUE
 {
     using SafeMath for uint256;
 

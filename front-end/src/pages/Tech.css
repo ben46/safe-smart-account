@@ -1,0 +1,44 @@
+/* src/pages/Tech.css */
+.container {
+    display: flex;
+    flex-direction: column; /* 从上到下排列 */
+    align-items: center;    /* 水平居中 */
+    justify-content: center; /* 垂直居中 */
+    height: 100vh;          /* 使容器高度占满整个视窗 */
+    text-align: center;     /* 使文本居中 */
+}
+
+.title {
+    font-size: 2em;
+    margin-bottom: 0.5em;   /* 标题与副标题之间的间距 */
+}
+
+.subtitle {
+    font-size: 1.5em;
+    margin-bottom: 1em;     /* 副标题与表单之间的间距 */
+}
+
+.textarea-calldata {
+    width: 80%;             /* 设置宽度为80% */
+    max-width: 800px;       /* 最大宽度为800px */
+    height: 300px;          /* 高度300px */
+    margin: 10px 0;         /* 元素之间的间距 */
+}
+
+.textarea-upgradeContent {
+    width: 80%;             /* 设置宽度为80% */
+    max-width: 800px;       /* 最大宽度为800px */
+    height: 150px;          /* 高度150px */
+    margin: 10px 0;         /* 元素之间的间距 */
+}
+
+textarea, input, button {
+    margin: 10px 0;         /* 元素之间的间距 */
+    width: 80%;             /* 设置元素宽度 */
+    max-width: 400px;       /* 最大宽度 */
+}
+
+button {
+    width: auto;            /* 按钮宽度自适应内容 */
+    padding: 10px 20px;     /* 按钮内边距 */
+}
