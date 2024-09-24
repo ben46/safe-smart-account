@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.7.0 <0.9.0;
 
+// 导入依赖的库和合约
 import "./base/ModuleManager.sol";
 import "./base/OwnerManager.sol";
 import "./base/FallbackManager.sol";
@@ -14,21 +15,18 @@ import "./interfaces/ISignatureValidator.sol";
 import "./external/SafeMath.sol";
 
 /**
- * @title Safe - A multisignature wallet with support for confirmations using signed messages based on EIP-712.
- * @dev Most important concepts:
- *      - Threshold: Number of required confirmations for a Safe transaction.
- *      - Owners: List of addresses that control the Safe. They are the only ones that can add/remove owners, change the threshold and
- *        approve transactions. Managed in `OwnerManager`.
- *      - Transaction Hash: Hash of a transaction is calculated using the EIP-712 typed structured data hashing scheme.
- *      - Nonce: Each transaction should have a different nonce to prevent replay attacks.
- *      - Signature: A valid signature of an owner of the Safe for a transaction hash.
- *      - Guard: Guard is a contract that can execute pre- and post- transaction checks. Managed in `GuardManager`.
- *      - Modules: Modules are contracts that can be used to extend the write functionality of a Safe. Managed in `ModuleManager`.
- *      - Fallback: Fallback handler is a contract that can provide additional read-only functional for Safe. Managed in `FallbackManager`.
- *      Note: This version of the implementation contract doesn't emit events for the sake of gas efficiency and therefore requires a tracing node for indexing/
- *      For the events-based implementation see `SafeL2.sol`.
- * @author Stefan George - @Georgi87
- * @author Richard Meissner - @rmeissner
+ * @title Safe - 一个支持基于EIP-712签名消息确认的多重签名钱包
+ * @dev 主要概念：
+ *      - Threshold（阈值）：Safe交易所需的确认数量。
+ *      - Owners（所有者）：控制Safe的钱包地址列表。只有他们可以添加/删除所有者、更改阈值和批准交易。这些操作都由`OwnerManager`管理。
+ *      - Transaction Hash（交易哈希）：使用EIP-712类型化结构数据哈希方案计算交易哈希。
+ *      - Nonce（随机数）：每笔交易应有不同的随机数以防止重播攻击。
+ *      - Signature（签名）：Safe所有者对交易哈希的有效签名。
+ *      - Guard（保护）：Guard是一个可以执行交易前后检查的合约，由`GuardManager`管理。
+ *      - Modules（模块）：可用于扩展Safe写功能的合约，由`ModuleManager`管理。
+ *      - Fallback（回退）：Fallback处理程序是一个合约，可为Safe提供额外的只读功能，由`FallbackManager`管理。
+ *      注意：这个实现版本的合约不发出事件以节省gas，因此需要一个跟踪节点进行索引。
+ *      请参见`SafeL2.sol`获取基于事件的实现。
  */
 contract Safe is
     Singleton,
@@ -46,51 +44,41 @@ contract Safe is
 
     string public constant VERSION = "1.4.1";
 
-    // keccak256(
-    //     "EIP712Domain(uint256 chainId,address verifyingContract)"
-    // );
+    // keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
     bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
 
-    // keccak256(
-    //     "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-    // );
+    // keccak256("SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)");
     bytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;
 
+    // 合约事件
     event SafeSetup(address indexed initiator, address[] owners, uint256 threshold, address initializer, address fallbackHandler);
     event ApproveHash(bytes32 indexed approvedHash, address indexed owner);
     event SignMsg(bytes32 indexed msgHash);
     event ExecutionFailure(bytes32 indexed txHash, uint256 payment);
     event ExecutionSuccess(bytes32 indexed txHash, uint256 payment);
 
+    // 状态变量
     uint256 public nonce;
     bytes32 private _deprecatedDomainSeparator;
-    // Mapping to keep track of all message hashes that have been approved by ALL REQUIRED owners
-    mapping(bytes32 => uint256) public signedMessages;
-    // Mapping to keep track of all hashes (message or transaction) that have been approved by ANY owners
-    mapping(address => mapping(bytes32 => uint256)) public approvedHashes;
+    mapping(bytes32 => uint256) public signedMessages; // 映射跟踪所有被所有者签名的消息哈希
+    mapping(address => mapping(bytes32 => uint256)) public approvedHashes; // 映射跟踪任何所有者批准的所有哈希
 
-    // This constructor ensures that this contract can only be used as a singleton for Proxy contracts
+    // 构造函数，确保该合约只能作为代理合约的singleton使用
     constructor() {
-        /**
-         * By setting the threshold it is not possible to call setup anymore,
-         * so we create a Safe with 0 owners and threshold 1.
-         * This is an unusable Safe, perfect for the singleton
-         */
-        threshold = 1;
+        threshold = 1; // 设置阈值，无法调用setup，因此创建一个没有所有者且阈值为1的Safe
     }
 
     /**
-     * @notice Sets an initial storage of the Safe contract.
-     * @dev This method can only be called once.
-     *      If a proxy was created without setting up, anyone can call setup and claim the proxy.
-     * @param _owners List of Safe owners.
-     * @param _threshold Number of required confirmations for a Safe transaction.
-     * @param to Contract address for optional delegate call.
-     * @param data Data payload for optional delegate call.
-     * @param fallbackHandler Handler for fallback calls to this contract
-     * @param paymentToken Token that should be used for the payment (0 is ETH)
-     * @param payment Value that should be paid
-     * @param paymentReceiver Address that should receive the payment (or 0 if tx.origin)
+     * @notice 设置Safe合约的初始存储。
+     * @dev 该方法只能调用一次。如果代理在未设置的情况下创建，任何人都可以调用setup并声明代理。
+     * @param _owners Safe所有者列表。
+     * @param _threshold Safe交易所需的确认数量。
+     * @param to 可选委托调用的合约地址。
+     * @param data 可选委托调用的数据负载。
+     * @param fallbackHandler 处理对该合约的回退调用的处理程序。
+     * @param paymentToken 用于支付的代币（0表示ETH）。
+     * @param payment 应支付的金额。
+     * @param paymentReceiver 应接收付款的地址（或tx.origin）。
      */
     function setup(
         address[] calldata _owners,
@@ -102,39 +90,30 @@ contract Safe is
         uint256 payment,
         address payable paymentReceiver
     ) external {
-        // setupOwners checks if the Threshold is already set, therefore preventing that this method is called twice
-        setupOwners(_owners, _threshold);
+        setupOwners(_owners, _threshold); // setupOwners检查阈值是否已设置，从而防止该方法被调用两次
         if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
-        // As setupOwners can only be called if the contract has not been initialized we don't need a check for setupModules
-        setupModules(to, data);
+        setupModules(to, data); // setupModules仅在合约未初始化时调用，因此不需要检查
 
         if (payment > 0) {
-            // To avoid running into issues with EIP-170 we reuse the handlePayment function (to avoid adjusting code of that has been verified we do not adjust the method itself)
-            // baseGas = 0, gasPrice = 1 and gas = payment => amount = (payment + 0) * 1 = payment
-            handlePayment(payment, 0, 1, paymentToken, paymentReceiver);
+            handlePayment(payment, 0, 1, paymentToken, paymentReceiver); // 处理付款
         }
-        emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler);
+        emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler); // 触发事件
     }
 
-    /** @notice Executes a `operation` {0: Call, 1: DelegateCall}} transaction to `to` with `value` (Native Currency)
-     *          and pays `gasPrice` * `gasLimit` in `gasToken` token to `refundReceiver`.
-     * @dev The fees are always transferred, even if the user transaction fails.
-     *      This method doesn't perform any sanity check of the transaction, such as:
-     *      - if the contract at `to` address has code or not
-     *      - if the `gasToken` is a contract or not
-     *      It is the responsibility of the caller to perform such checks.
-     * @param to Destination address of Safe transaction.
-     * @param value Ether value of Safe transaction.
-     * @param data Data payload of Safe transaction.
-     * @param operation Operation type of Safe transaction.
-     * @param safeTxGas Gas that should be used for the Safe transaction.
-     * @param baseGas Gas costs that are independent of the transaction execution(e.g. base transaction fee, signature check, payment of the refund)
-     * @param gasPrice Gas price that should be used for the payment calculation.
-     * @param gasToken Token address (or 0 if ETH) that is used for the payment.
-     * @param refundReceiver Address of receiver of gas payment (or 0 if tx.origin).
-     * @param signatures Signature data that should be verified.
-     *                   Can be packed ECDSA signature ({bytes32 r}{bytes32 s}{uint8 v}), contract signature (EIP-1271) or approved hash.
-     * @return success Boolean indicating transaction's success.
+    /**
+     * @notice 执行一个`operation`类型的交易，并支付`gasPrice` * `gasLimit`给`refundReceiver`。
+     * @dev 即使用户交易失败，费用也会始终转移。
+     * @param to Safe交易的目标地址。
+     * @param value Safe交易的ETH值。
+     * @param data Safe交易的数据负载。
+     * @param operation Safe交易的操作类型。
+     * @param safeTxGas 用于Safe交易的gas量。
+     * @param baseGas 与交易执行无关的gas成本（如基本交易费用、签名检查、退款支付）。
+     * @param gasPrice 用于支付计算的gas价格。
+     * @param gasToken 用于支付的代币地址（或0表示ETH）。
+     * @param refundReceiver gas付款接收者的地址（或tx.origin）。
+     * @param signatures 应验证的签名数据。可以是打包的ECDSA签名，合约签名（EIP-1271）或已批准的哈希。
+     * @return success 表示交易成功的布尔值。
      */
     function execTransaction(
         address to,
@@ -149,44 +128,39 @@ contract Safe is
         bytes memory signatures
     ) public payable virtual returns (bool success) {
         bytes32 txHash;
-        // Use scope here to limit variable lifetime and prevent `stack too deep` errors
+
+        // 限制变量生命周期以防止`stack too deep`错误
         {
             bytes memory txHashData = encodeTransactionData(
-                // Transaction info
                 to,
                 value,
                 data,
                 operation,
                 safeTxGas,
-                // Payment info
                 baseGas,
                 gasPrice,
                 gasToken,
                 refundReceiver,
-                // Signature info
                 nonce
             );
-            // Increase nonce and execute transaction.
-            nonce++;
+            nonce++; // 增加随机数并执行交易
             txHash = keccak256(txHashData);
-            checkSignatures(txHash, txHashData, signatures);
+            checkSignatures(txHash, txHashData, signatures); // 检查签名
         }
+
         address guard = getGuard();
         {
             if (guard != address(0)) {
                 Guard(guard).checkTransaction(
-                    // Transaction info
                     to,
                     value,
                     data,
                     operation,
                     safeTxGas,
-                    // Payment info
                     baseGas,
                     gasPrice,
                     gasToken,
                     refundReceiver,
-                    // Signature info
                     signatures,
                     msg.sender
                 );
@@ -221,221 +195,223 @@ contract Safe is
     }
 
     /**
-     * @notice Handles the payment for a Safe transaction.
-     * @param gasUsed Gas used by the Safe transaction.
-     * @param baseGas Gas costs that are independent of the transaction execution (e.g. base transaction fee, signature check, payment of the refund).
-     * @param gasPrice Gas price that should be used for the payment calculation.
-     * @param gasToken Token address (or 0 if ETH) that is used for the payment.
-     * @return payment The amount of payment made in the specified token.
+     * @notice 处理Safe交易的付款。
+     * @param gasUsed Safe交易使用的gas量。
+     * @param baseGas 与交易执行无关的gas成本（如基本交易费用、签名检查、     
+     * 退款支付)。
+     * @param gasPrice 用于支付gas的价格。
+     * @param gasToken 用于支付的代币地址（或0表示ETH）。
+     * @param refundReceiver 接收付款的地址（或tx.origin）。
+     * @return payment 计算出的付款金额。
      */
-    function handlePayment(
-        uint256 gasUsed,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address payable refundReceiver
-    ) private returns (uint256 payment) {
-        // solhint-disable-next-line avoid-tx-origin
-        address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;
-        if (gasToken == address(0)) {
-            // For ETH we will only adjust the gas price to not be higher than the actual used gas price
-            payment = gasUsed.add(baseGas).mul(gasPrice < tx.gasprice ? gasPrice : tx.gasprice);
-            require(receiver.send(payment), "GS011");
-        } else {
-            payment = gasUsed.add(baseGas).mul(gasPrice);
-            require(transferToken(gasToken, receiver, payment), "GS012");
-        }
+    function handlePayment(  
+        uint256 gasUsed,  
+        uint256 baseGas,  
+        uint256 gasPrice,  
+        address gasToken,  
+        address payable refundReceiver  
+    ) private returns (uint256 payment) {  
+        // solhint-disable-next-line avoid-tx-origin  
+        address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;  
+        if (gasToken == address(0)) {  
+            // 对于 ETH，我们只会调整 gas 价格，以确保不高于实际使用的 gas 价格  
+            payment = gasUsed.add(baseGas).mul(gasPrice < tx.gasprice ? gasPrice : tx.gasprice);  
+            require(receiver.send(payment), "GS011");  
+        } else {  
+            payment = gasUsed.add(baseGas).mul(gasPrice);  
+            require(transferToken(gasToken, receiver, payment), "GS012");  
+        }  
     }
 
-    /**
-     * @notice Checks whether the signature provided is valid for the provided data and hash. Reverts otherwise.
-     * @param dataHash Hash of the data (could be either a message hash or transaction hash)
-     * @param data That should be signed (this is passed to an external validator contract)
-     * @param signatures Signature data that should be verified.
-     *                   Can be packed ECDSA signature ({bytes32 r}{bytes32 s}{uint8 v}), contract signature (EIP-1271) or approved hash.
-     */
-    function checkSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures) public view {
-        // Load threshold to avoid multiple storage loads
-        uint256 _threshold = threshold;
-        // Check that a threshold is set
-        require(_threshold > 0, "GS001");
-        checkNSignatures(dataHash, data, signatures, _threshold);
+    /**  
+     * @notice 检查提供的签名是否对提供的数据和哈希有效。否则，抛出错误。  
+     * @param dataHash 数据的哈希（可以是消息哈希或交易哈希）  
+     * @param data 应该被签名的数据（将传递给外部验证合约）  
+     * @param signatures 应该被验证的签名数据。  
+     *                   可以是打包的 ECDSA 签名（{bytes32 r}{bytes32 s}{uint8 v}），合约签名（EIP-1271）或批准的哈希。  
+     */  
+    function checkSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures) public view {  
+        // 加载阈值以避免多次存储加载  
+        uint256 _threshold = threshold;  
+        // 检查是否设置了阈值  
+        require(_threshold > 0, "GS001");  
+        checkNSignatures(dataHash, data, signatures, _threshold);  
+    }  
+
+    /**  
+     * @notice 检查提供的签名是否对提供的数据和哈希有效。否则，抛出错误。  
+     * @dev 由于 EIP-1271 进行外部调用，请注意重入攻击。  
+     * @param dataHash 数据的哈希（可以是消息哈希或交易哈希）  
+     * @param data 应该被签名的数据（将传递给外部验证合约）  
+     * @param signatures 应该被验证的签名数据。  
+     *                   可以是打包的 ECDSA 签名（{bytes32 r}{bytes32 s}{uint8 v}），合约签名（EIP-1271）或批准的哈希。  
+     * @param requiredSignatures 所需有效签名的数量。  
+     */  
+    function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures) public view {  
+        // 检查提供的签名数据是否太短  
+        require(signatures.length >= requiredSignatures.mul(65), "GS020");  
+        // 地址为 0 的所有者是不可接受的。  
+        address lastOwner = address(0);  
+        address currentOwner;  
+        uint8 v;  
+        bytes32 r;  
+        bytes32 s;  
+        uint256 i;  
+        for (i = 0; i < requiredSignatures; i++) {  
+            (v, r, s) = signatureSplit(signatures, i);  
+            if (v == 0) {  
+                require(keccak256(data) == dataHash, "GS027");  
+                // 如果 v 为 0，则它是合约签名  
+                // 处理合约签名时，合约的地址编码在 r 中  
+                currentOwner = address(uint160(uint256(r)));  
+
+                // 检查签名数据指针 (s) 是否不指向静态部分的签名字节  
+                // 此检查并不完全准确，因为可能发送的签名数量超过了阈值。  
+                // 这里我们仅检查指针不指向正在处理的部分  
+                require(uint256(s) >= requiredSignatures.mul(65), "GS021");  
+
+                // 检查签名数据指针 (s) 的边界（指向数据长度 -> 32 字节）  
+                require(uint256(s).add(32) <= signatures.length, "GS022");  
+
+                // 检查合约签名是否在边界内：数据开始为 s + 32，结束为开始 + 签名长度  
+                uint256 contractSignatureLen;  
+                // solhint-disable-next-line no-inline-assembly  
+                assembly {  
+                    contractSignatureLen := mload(add(add(signatures, s), 0x20))  
+                }  
+                require(uint256(s).add(32).add(contractSignatureLen) <= signatures.length, "GS023");  
+
+                // 检查签名  
+                bytes memory contractSignature;  
+                // solhint-disable-next-line no-inline-assembly  
+                assembly {  
+                    // 合约签名的数据附加到连接的签名后，偏移量存储在 s 中  
+                    contractSignature := add(add(signatures, s), 0x20)  
+                }  
+                require(ISignatureValidator(currentOwner).isValidSignature(data, contractSignature) == EIP1271_MAGIC_VALUE, "GS024");  
+            } else if (v == 1) {  
+                // 如果 v 为 1，则它是一个批准的哈希  
+                // 处理批准哈希时，批准者的地址编码在 r 中  
+                currentOwner = address(uint160(uint256(r)));  
+                // 消息的发送者或通过单独交易预先批准的哈希自动获得批准  
+                require(msg.sender == currentOwner || approvedHashes[currentOwner][dataHash] != 0, "GS025");  
+            } else if (v > 30) {  
+                // 如果 v > 30，则默认 va（27,28）已针对 eth_sign 流进行了调整  
+                // 为了支持 eth_sign 和类似功能，我们调整 v 并在应用 ecrecover 之前对 messageHash 进行哈希处理  
+                currentOwner = ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash)), v - 4, r, s);  
+            } else {  
+                // 默认是使用提供的数据哈希的 ecrecover 流  
+                // 对于 EOA 签名，使用 messageHash 执行 ecrecover  
+                currentOwner = ecrecover(dataHash, v, r, s);  
+            }  
+            require(currentOwner > lastOwner && owners[currentOwner] != address(0) && currentOwner != SENTINEL_OWNERS, "GS026");  
+            lastOwner = currentOwner;  
+        }  
     }
 
-    /**
-     * @notice Checks whether the signature provided is valid for the provided data and hash. Reverts otherwise.
-     * @dev Since the EIP-1271 does an external call, be mindful of reentrancy attacks.
-     * @param dataHash Hash of the data (could be either a message hash or transaction hash)
-     * @param data That should be signed (this is passed to an external validator contract)
-     * @param signatures Signature data that should be verified.
-     *                   Can be packed ECDSA signature ({bytes32 r}{bytes32 s}{uint8 v}), contract signature (EIP-1271) or approved hash.
-     * @param requiredSignatures Amount of required valid signatures.
-     */
-    function checkNSignatures(bytes32 dataHash, bytes memory data, bytes memory signatures, uint256 requiredSignatures) public view {
-        // Check that the provided signature data is not too short
-        require(signatures.length >= requiredSignatures.mul(65), "GS020");
-        // There cannot be an owner with address 0.
-        address lastOwner = address(0);
-        address currentOwner;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-        uint256 i;
-        for (i = 0; i < requiredSignatures; i++) {
-            (v, r, s) = signatureSplit(signatures, i);
-            if (v == 0) {
-                require(keccak256(data) == dataHash, "GS027");
-                // If v is 0 then it is a contract signature
-                // When handling contract signatures the address of the contract is encoded into r
-                currentOwner = address(uint160(uint256(r)));
+    /**  
+     * @notice 标记哈希 `hashToApprove` 为已批准。  
+     * @dev 这可以与预先批准的哈希交易签名一起使用。  
+     *      重要提示：已批准的哈希将永远保持批准状态。没有撤销机制，因此其行为类似于 ECDSA 签名。  
+     * @param hashToApprove 要标记为已批准的哈希，用于由此合约验证的签名。  
+     */  
+    function approveHash(bytes32 hashToApprove) external {  
+        require(owners[msg.sender] != address(0), "GS030");  
+        approvedHashes[msg.sender][hashToApprove] = 1;  
+        emit ApproveHash(hashToApprove, msg.sender);  
+    }  
 
-                // Check that signature data pointer (s) is not pointing inside the static part of the signatures bytes
-                // This check is not completely accurate, since it is possible that more signatures than the threshold are send.
-                // Here we only check that the pointer is not pointing inside the part that is being processed
-                require(uint256(s) >= requiredSignatures.mul(65), "GS021");
-
-                // Check that signature data pointer (s) is in bounds (points to the length of data -> 32 bytes)
-                require(uint256(s).add(32) <= signatures.length, "GS022");
-
-                // Check if the contract signature is in bounds: start of data is s + 32 and end is start + signature length
-                uint256 contractSignatureLen;
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    contractSignatureLen := mload(add(add(signatures, s), 0x20))
-                }
-                require(uint256(s).add(32).add(contractSignatureLen) <= signatures.length, "GS023");
-
-                // Check signature
-                bytes memory contractSignature;
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    // The signature data for contract signatures is appended to the concatenated signatures and the offset is stored in s
-                    contractSignature := add(add(signatures, s), 0x20)
-                }
-                require(ISignatureValidator(currentOwner).isValidSignature(data, contractSignature) == EIP1271_MAGIC_VALUE, "GS024");
-            } else if (v == 1) {
-                // If v is 1 then it is an approved hash
-                // When handling approved hashes the address of the approver is encoded into r
-                currentOwner = address(uint160(uint256(r)));
-                // Hashes are automatically approved by the sender of the message or when they have been pre-approved via a separate transaction
-                require(msg.sender == currentOwner || approvedHashes[currentOwner][dataHash] != 0, "GS025");
-            } else if (v > 30) {
-                // If v > 30 then default va (27,28) has been adjusted for eth_sign flow
-                // To support eth_sign and similar we adjust v and hash the messageHash with the Ethereum message prefix before applying ecrecover
-                currentOwner = ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash)), v - 4, r, s);
-            } else {
-                // Default is the ecrecover flow with the provided data hash
-                // Use ecrecover with the messageHash for EOA signatures
-                currentOwner = ecrecover(dataHash, v, r, s);
-            }
-            require(currentOwner > lastOwner && owners[currentOwner] != address(0) && currentOwner != SENTINEL_OWNERS, "GS026");
-            lastOwner = currentOwner;
-        }
+    /**  
+     * @notice 返回合约当前部署的链的 ID。  
+     * @return 当前链的 ID，作为 uint256。  
+     */  
+    function getChainId() public view returns (uint256) {  
+        uint256 id;  
+        // solhint-disable-next-line no-inline-assembly  
+        assembly {  
+            id := chainid()  
+        }  
+        return id;  
     }
 
-    /**
-     * @notice Marks hash `hashToApprove` as approved.
-     * @dev This can be used with a pre-approved hash transaction signature.
-     *      IMPORTANT: The approved hash stays approved forever. There's no revocation mechanism, so it behaves similarly to ECDSA signatures
-     * @param hashToApprove The hash to mark as approved for signatures that are verified by this contract.
-     */
-    function approveHash(bytes32 hashToApprove) external {
-        require(owners[msg.sender] != address(0), "GS030");
-        approvedHashes[msg.sender][hashToApprove] = 1;
-        emit ApproveHash(hashToApprove, msg.sender);
-    }
+    /**  
+     * @dev 返回该合约的域分隔符，按照 EIP-712 标准定义。  
+     * @return bytes32 域分隔符哈希值。  
+     */  
+    function domainSeparator() public view returns (bytes32) {  
+        return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));  
+    }  
 
-    /**
-     * @notice Returns the ID of the chain the contract is currently deployed on.
-     * @return The ID of the current chain as a uint256.
-     */
-    function getChainId() public view returns (uint256) {
-        uint256 id;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            id := chainid()
-        }
-        return id;
-    }
+    /**  
+     * @notice 返回事务哈希的原始数据（参见 getTransactionHash）。  
+     * @param to 目标地址。  
+     * @param value 以太币价值。  
+     * @param data 数据负载。  
+     * @param operation 操作类型。  
+     * @param safeTxGas 应用于安全交易的 gas。  
+     * @param baseGas 独立于交易执行的 gas 成本（例如基本交易费用、签名检查、退款支付）。  
+     * @param gasPrice 应用于此交易的最大 gas 价格。  
+     * @param gasToken 用于支付的令牌地址（如果是 ETH，则为 0）。  
+     * @param refundReceiver gas 支付的接收者地址（如果是 tx.origin，则为 0）。  
+     * @param _nonce 交易的随机数。  
+     * @return 交易哈希字节。  
+     */  
+    function encodeTransactionData(  
+        address to,  
+        uint256 value,  
+        bytes calldata data,  
+        Enum.Operation operation,  
+        uint256 safeTxGas,  
+        uint256 baseGas,  
+        uint256 gasPrice,  
+        address gasToken,  
+        address refundReceiver,  
+        uint256 _nonce  
+    ) public view returns (bytes memory) {  
+        bytes32 safeTxHash = keccak256(  
+            abi.encode(  
+                SAFE_TX_TYPEHASH,  
+                to,  
+                value,  
+                keccak256(data),  
+                operation,  
+                safeTxGas,  
+                baseGas,  
+                gasPrice,  
+                gasToken,  
+                refundReceiver,  
+                _nonce  
+            )  
+        );  
+        return abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), safeTxHash);  
+    }  
 
-    /**
-     * @dev Returns the domain separator for this contract, as defined in the EIP-712 standard.
-     * @return bytes32 The domain separator hash.
-     */
-    function domainSeparator() public view returns (bytes32) {
-        return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));
-    }
-
-    /**
-     * @notice Returns the pre-image of the transaction hash (see getTransactionHash).
-     * @param to Destination address.
-     * @param value Ether value.
-     * @param data Data payload.
-     * @param operation Operation type.
-     * @param safeTxGas Gas that should be used for the safe transaction.
-     * @param baseGas Gas costs for that are independent of the transaction execution(e.g. base transaction fee, signature check, payment of the refund)
-     * @param gasPrice Maximum gas price that should be used for this transaction.
-     * @param gasToken Token address (or 0 if ETH) that is used for the payment.
-     * @param refundReceiver Address of receiver of gas payment (or 0 if tx.origin).
-     * @param _nonce Transaction nonce.
-     * @return Transaction hash bytes.
-     */
-    function encodeTransactionData(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Enum.Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address refundReceiver,
-        uint256 _nonce
-    ) public view returns (bytes memory) {
-        bytes32 safeTxHash = keccak256(
-            abi.encode(
-                SAFE_TX_TYPEHASH,
-                to,
-                value,
-                keccak256(data),
-                operation,
-                safeTxGas,
-                baseGas,
-                gasPrice,
-                gasToken,
-                refundReceiver,
-                _nonce
-            )
-        );
-        return abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), safeTxHash);
-    }
-
-    /**
-     * @notice Returns transaction hash to be signed by owners.
-     * @param to Destination address.
-     * @param value Ether value.
-     * @param data Data payload.
-     * @param operation Operation type.
-     * @param safeTxGas Fas that should be used for the safe transaction.
-     * @param baseGas Gas costs for data used to trigger the safe transaction.
-     * @param gasPrice Maximum gas price that should be used for this transaction.
-     * @param gasToken Token address (or 0 if ETH) that is used for the payment.
-     * @param refundReceiver Address of receiver of gas payment (or 0 if tx.origin).
-     * @param _nonce Transaction nonce.
-     * @return Transaction hash.
-     */
-    function getTransactionHash(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Enum.Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address refundReceiver,
-        uint256 _nonce
-    ) public view returns (bytes32) {
-        return keccak256(encodeTransactionData(to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, _nonce));
+    /**  
+     * @notice 返回待所有者签名的交易哈希。  
+     * @param to 目标地址。  
+     * @param value 以太币价值。  
+     * @param data 数据负载。  
+     * @param operation 操作类型。  
+     * @param safeTxGas 应用于安全交易的 gas。  
+     * @param baseGas 用于触发安全交易的数据的 gas 成本。  
+     * @param gasPrice 应用于此交易的最大 gas 价格。  
+     * @param gasToken 用于支付的令牌地址（如果是 ETH，则为 0）。  
+     * @param refundReceiver gas 支付的接收者地址（如果是 tx.origin，则为 0）。  
+     * @param _nonce 交易的随机数。  
+     * @return 交易哈希。  
+     */  
+    function getTransactionHash(  
+        address to,  
+        uint256 value,  
+        bytes calldata data,  
+        Enum.Operation operation,  
+        uint256 safeTxGas,  
+        uint256 baseGas,  
+        uint256 gasPrice,  
+        address gasToken,  
+        address refundReceiver,  
+        uint256 _nonce  
+    ) public view returns (bytes32) {  
+        return keccak256(encodeTransactionData(to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, _nonce));  
     }
 }

@@ -4,8 +4,8 @@ pragma solidity >=0.7.0 <0.9.0;
 import "../base/Executor.sol";
 
 /**
- * @title Simulate Transaction Accessor.
- * @notice Can be used with StorageAccessible to simulate Safe transactions.
+ * @title 模拟交易访问器（Simulate Transaction Accessor）。
+ * @notice 可与 StorageAccessible 配合使用，以模拟安全交易（Safe transactions）。
  * @author Richard Meissner - @rmeissner
  */
 contract SimulateTxAccessor is Executor {
@@ -16,28 +16,28 @@ contract SimulateTxAccessor is Executor {
     }
 
     /**
-     * @notice Modifier to make a function callable via delegatecall only.
-     * If the function is called via a regular call, it will revert.
+     * @notice 修饰符，使函数只能通过 delegatecall 调用。
+     * 如果通过常规调用调用该函数，则将会回滚。
      */
     modifier onlyDelegateCall() {
-        require(address(this) != accessorSingleton, "SimulateTxAccessor should only be called via delegatecall");
+        require(address(this) != accessorSingleton, "SimulateTxAccessor 应仅通过 delegatecall 调用");
         _;
     }
 
     /**
-     * @notice Simulates a Safe transaction and returns the used gas, success boolean and the return data.
-     * @dev Executes the specified operation {Call, DelegateCall} and returns operation-specific data.
-     *      Has to be called via delegatecall.
-     *      This returns the data equal to `abi.encode(uint256(etimate), bool(success), bytes(returnData))`.
-     *      Specifically, the returndata will be:
-     *      `estimate:uint256 || success:bool || returnData.length:uint256 || returnData:bytes`.
-     * @param to Destination address .
-     * @param value Native token value.
-     * @param data Data payload.
-     * @param operation Operation type {Call, DelegateCall}.
-     * @return estimate Gas used.
-     * @return success Success boolean value.
-     * @return returnData Return data.
+     * @notice 模拟安全交易并返回使用的 gas、成功布尔值和返回数据。
+     * @dev 执行指定的操作 {Call, DelegateCall} 并返回操作特定的数据。
+     *      必须通过 delegatecall 调用。
+     *      返回的数据格式为 `abi.encode(uint256(estimation), bool(success), bytes(returnData))`。
+     *      具体来说，返回数据将是：
+     *      `estimate:uint256 || success:bool || returnData.length:uint256 || returnData:bytes`。
+     * @param to 目标地址。
+     * @param value 原生代币值。
+     * @param data 数据有效载荷。
+     * @param operation 操作类型 {Call, DelegateCall}。
+     * @return estimate 使用的 gas。
+     * @return success 成功的布尔值。
+     * @return returnData 返回的数据。
      */
     function simulate(
         address to,
@@ -50,16 +50,16 @@ contract SimulateTxAccessor is Executor {
         estimate = startGas - gasleft();
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            // Load free memory location
+            // 加载空闲内存位置
             let ptr := mload(0x40)
-            // We allocate memory for the return data by setting the free memory location to
-            // current free memory location + data size + 32 bytes for data size value
+            // 我们通过将空闲内存位置设置为
+            // 当前空闲内存位置 + 数据大小 + 32 字节的数据大小值来为返回数据分配内存
             mstore(0x40, add(ptr, add(returndatasize(), 0x20)))
-            // Store the size
+            // 存储大小
             mstore(ptr, returndatasize())
-            // Store the data
+            // 存储数据
             returndatacopy(add(ptr, 0x20), 0, returndatasize())
-            // Point the return data to the correct memory location
+            // 将返回数据指向正确的内存位置
             returnData := ptr
         }
     }
