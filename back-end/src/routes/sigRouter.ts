@@ -3,6 +3,7 @@ import { Router,Request,Response } from 'express';
 import { safeContract } from '../controllers/safeContract';
 import { ethers } from 'ethers';
 const router = Router();
+import { dbController, Transaction } from '../controllers/dbController';
 
 interface TransactionQuery {
     data: string;
@@ -39,7 +40,22 @@ router.get('/sig/add',async (req,res) => {
 
     try {
         await safeContract.checkNSignatures(txHash,txData,transaction.signature,"1")
-        res.json({ status: 'success' });
+        const signature: Transaction = {
+            to: safeContract.target as string,
+            value: "0",
+            operation: "0",
+            data: transaction.data,
+            signature: transaction.signature,
+            owner: transaction.owner,
+            txHash: txHash,
+            txData: txData
+        }
+        const id = await dbController.insertTransaction(signature);
+        res.json({
+            status: 'success',
+            transaction: signature,
+            id: id
+        });
     } catch (error) {
         res.json({ status: 'failed' });
     }
