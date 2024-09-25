@@ -12,6 +12,15 @@ interface Transaction {
     txHash: string;
 }
 
+interface Calldata{
+    calldata: string;
+    upgradeContent: string;
+    version: string;
+    submitterEmail: string;
+    submitterName: string;
+    createdAt?: string;
+}
+
 class DbController {
     private db: Database | null = null;
 
@@ -28,18 +37,48 @@ class DbController {
         if (!this.db) throw new Error('Database not initialized');
 
         await this.db.exec(`  
-      CREATE TABLE IF NOT EXISTS transactions (  
-        id INTEGER PRIMARY KEY AUTOINCREMENT,  
-        to TEXT NOT NULL,  
-        value TEXT NOT NULL,  
-        data TEXT,  
-        operation TEXT NOT NULL,  
-        signature TEXT,  
-        owner TEXT NOT NULL,  
-        txData TEXT,  
-        txHash TEXT  
-      )  
-    `);
+            CREATE TABLE IF NOT EXISTS transactions (  
+                id INTEGER PRIMARY KEY AUTOINCREMENT,  
+                to TEXT NOT NULL,  
+                value TEXT NOT NULL,  
+                data TEXT,  
+                operation TEXT NOT NULL,  
+                signature TEXT,  
+                owner TEXT NOT NULL,  
+                txData TEXT,  
+                txHash TEXT  
+            )  
+        `);
+        
+        await this.db.exec(`  
+        CREATE TABLE IF NOT EXISTS calldatas (  
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  
+            calldata TEXT NOT NULL,  
+            upgradeContent TEXT NOT NULL,  
+            createdAt TEXT NOT NULL,  
+            version TEXT NOT NULL,  
+            submitterEmail TEXT NOT NULL,  
+            submitterName TEXT NOT NULL
+        )  
+        `);
+    }
+
+    async insertCalldata(transaction: Calldata): Promise<number> {
+        if (!this.db) throw new Error('Database not initialized');
+        const result = await this.db.run(`  
+            INSERT INTO calldatas (calldata, upgradeContent, version, submitterEmail, submitterName, createdAt)  
+            VALUES (?, ?, ?, ?, ?)  
+            `,
+            [
+                transaction.calldata,
+                transaction.upgradeContent,
+                transaction.version,
+                transaction.submitterEmail,
+                transaction.submitterName,
+                transaction.createdAt
+            ]);
+
+        return result.lastID!;
     }
 
     async insertTransaction(transaction: Transaction): Promise<number> {
@@ -68,8 +107,11 @@ class DbController {
 
     async getAllTransactions(): Promise<Transaction[]> {
         if (!this.db) throw new Error('Database not initialized');
-
         return this.db.all<Transaction[]>('SELECT * FROM transactions');
+    }
+    async getAllCalldatas(): Promise<Calldata[]> {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.all<Calldata[]>('SELECT * FROM calldatas order by createdAt desc');
     }
 
     async updateTransaction(id: number,transaction: Partial<Transaction>): Promise<void> {
@@ -98,5 +140,6 @@ class DbController {
 const dbController = new DbController();
 export { 
     Transaction,
+    Calldata,
     dbController
 }
