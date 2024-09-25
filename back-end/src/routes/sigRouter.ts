@@ -25,6 +25,16 @@ router.get('/sig/txhash/:txhash',async (req: Request,res: Response) => {
     }
 });
 
+router.get('/sig/calldataId',async (req: Request,res: Response) => {
+    try {
+        const calldataId = req.params.calldataId;
+        const transactions = await dbController.getTransactionsByCalldataId(calldataId)
+        res.json(transactions);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get transactions' });
+    }
+});
+
 router.get('/sig/all',async (req: Request,res: Response) => {
     try {
         const transactions = await dbController.getAllTransactions();
@@ -75,7 +85,7 @@ router.get('/sig/exec/txhash/:txhash',async (req: Request,res: Response) => {
 
 router.get('/sig/add',async (req,res) => {
 
-    const { data,operation,signature,owner } = req.query;  
+    const { data,signature,owner , calldataId} = req.query;  
 
     // 将查询参数映射到结构体  
     const transaction: TransactionQuery = {
@@ -103,6 +113,7 @@ router.get('/sig/add',async (req,res) => {
     try {
         await safeContract.checkNSignatures(txHash,txData,transaction.signature,"1")
         const signature: Transaction = {
+            calldataId: calldataId as string,
             to: safeContract.target as string,
             value: "0",
             operation: "0",

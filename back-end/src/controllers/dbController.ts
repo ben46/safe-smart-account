@@ -10,6 +10,7 @@ interface Transaction {
     owner: string;
     txData: string;
     txHash: string;
+    calldataId: string;
 }
 
 interface Calldata{
@@ -39,6 +40,7 @@ class DbController {
         await this.db.exec(`  
             CREATE TABLE IF NOT EXISTS transactions (  
                 id INTEGER PRIMARY KEY AUTOINCREMENT,  
+                calldataId INTEGER,  
                 to TEXT NOT NULL,  
                 value TEXT NOT NULL,  
                 data TEXT,  
@@ -97,6 +99,12 @@ class DbController {
         if (!this.db) throw new Error('Database not initialized');
 
         return this.db.get<Transaction[]>('SELECT * FROM transactions WHERE txHash = ? order by owner asc', txHash);
+    }
+
+
+    async getTransactionsByCalldataId(calldataId: string): Promise<Transaction[] | undefined> {
+        if (!this.db) throw new Error('Database not initialized');
+        return this.db.get<Transaction[]>('SELECT * FROM transactions WHERE calldataId = ? order by owner asc',calldataId);
     }
 
     async getTransactionById(id: number): Promise<Transaction | undefined> {

@@ -1,102 +1,115 @@
-// src/pages/Boss.tsx
+
 import React,{ useState,useEffect } from 'react';
 import axios from 'axios';
-import Select from 'react-select';
 import { ethers } from 'ethers';
 
-import { Safe__factory } from '../typechain-types';
-import { multiSigWallet as multiSigWalletAddress } from '../../address.json';
-
-// 这里替换为你的合约地址和 ABI  
-const provider = ethers.getDefaultProvider() as ethers.providers.JsonRpcProvider;
-const contract = Safe__factory.connect(multiSigWalletAddress,provider.getSigner());
+// import { Safe__factory } from '../typechain-types';
+// const mulltiSigWalletAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+// // const provider = ethers.getDefaultProvider() as ethers.providers.JsonRpcProvider;
+// // const contract = Safe__factory.connect(mulltiSigWalletAddress,provider.getSigner());
 const endPoint = 'http://localhost:3000';
-export { contract as safeContract };
+// // export { contract as safeContract };
+
+interface Calldata {
+    id: string;
+    calldata: string;
+    upgradeContent: string;
+    version: string;
+    submitterEmail: string;
+    submitterName: string;
+    createdAt?: string;
+}
+
+interface Signature {
+    calldataId: string;
+    to: string;
+    value: string;
+    data: string;
+    operation: string;
+    signature: string;
+    owner: string;
+    txData: string;
+    txHash: string;
+}
 
 const Boss: React.FC = () => {
-    const [upgrades,setUpgrades] = useState([]);
-    const [selectedUpgrade,setSelectedUpgrade] = useState(null);
-    const [wallets,setWallets] = useState([]);
+    const [calldatas,setCalldatas] = useState<Calldata[]>([]);
+    const [signatures,setSignatures] = useState<{ [key: string]: Signature[] }>({});
 
     useEffect(() => {
-        const fetchUpgrades = async () => {
-            const result = await axios.get(`${endPoint}/api/upgrade/all`); // 假设后端提供这个接口
-            setUpgrades(result.data);
-        };
-        fetchUpgrades();
+        // const fetchUpgrades = async () => {
+        //     const result = await axios.get(`${endPoint}/api/upgrade/all`);
+        //     setCalldatas(result.data);
+        //     for (const calldata of result.data) {
+        //         await fetchSignatures(calldata.id);
+        //     }
+        // };
+        // fetchUpgrades();
     },[]);
 
-    const handleSelectChange = (selectedOption: string) => {
-        // setSelectedUpgrade(selectedOption);
-        // fetchWallets(selectedOption.value);
+    const fetchSignatures = async (calldataId: string) => {
+        const result = await axios.get(`${endPoint}/api/sig?calldataId=${calldataId}`);
+        setSignatures(prev => ({ ...prev,[calldataId]: result.data }));
     };
 
-    const fetchWallets = async (version: string) => {
-        const result = await axios.get(`${endPoint}/api/wallets?version=${version}`); // 假设后端提供这个接口
-        setWallets(result.data);
-    };
-
-    const handleSign = async () => {
-        // if (!selectedUpgrade) return;
-
-        // const provider = new ethers.providers.Web3Provider(window.ethereum);
-        // const signer = provider.getSigner();
-        // const signature = await signer.signMessage(selectedUpgrade.calldata);
-
-        // // 发送签名到后端
-        // await axios.post('/api/signatures',{
-        //     version: selectedUpgrade.value,
-        //     signature,
+    const handleSign = async (selectedCalldataId: string,selectedCalldata: string) => {
+        // const signer = provider.getSigner(); // fix this
+        // const signature = await signer.signMessage(selectedCalldata);
+        // await axios.post('/api/sig/add',{
+        //     calldataId: selectedCalldataId,
+        //     data: selectedCalldata,
+        //     signature: signature,
+        //     owner: await signer.getAddress()
         // });
-
-        // fetchWallets(selectedUpgrade.value);
+        // await fetchSignatures(selectedCalldataId);
     };
-
 
     return (
-        <div style={{ textAlign: 'center' }}>
-            <h1>Sahara-AI合约升级</h1>
-            <h2>多签钱包签名 (老板)</h2>
-            <div style={{ width: '300px',margin: '20px auto' }}>
-                <Select
-                // options={upgrades.map(upgrade => ({ value: upgrade.version,label: upgrade.version }))}
-                // onChange={handleSelectChange}
-            />
-            {/* {selectedUpgrade && (
-                <div>
-                    <p>Calldata: {selectedUpgrade.calldata}</p>
-                    <p>升级内容: {selectedUpgrade.upgradeContent}</p>
-                    <p>版本号: {selectedUpgrade.version}</p>
-                    <p>提交人的邮箱: {selectedUpgrade.email}</p>
-                    <p>提交人的名字: {selectedUpgrade.name}</p>
-                </div>
-            )} */}
-            </div>
+        <div className="container mx-auto px-4">
+            <h1 className="text-3xl font-bold text-center my-8">Sahara-AI合约升级</h1>
+            <h2 className="text-2xl font-semibold text-center mb-8">多签钱包签名 (老板)</h2>
+            {calldatas.map((calldata) => (
+                <div key={calldata.id} className="mb-8 p-6 border rounded-lg shadow-lg">
+                    <h3 className="text-xl font-semibold mb-4">Calldata ID: {calldata.id}</h3>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <p><strong>Calldata:</strong> {calldata.calldata}</p>
+                            <p><strong>Upgrade Content:</strong> {calldata.upgradeContent}</p>
+                            <p><strong>Version:</strong> {calldata.version}</p>
+                        </div>
+                        <div>
+                            <p><strong>Submitter Email:</strong> {calldata.submitterEmail}</p>
+                            <p><strong>Submitter Name:</strong> {calldata.submitterName}</p>
+                            <p><strong>Created At:</strong> {calldata.createdAt}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => handleSign(calldata.id,calldata.calldata)}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                    >
+                        Sign
+                    </button>
 
-            {wallets.length > 0 && (
-                <div>
-                    <table style={{ margin: '20px auto',borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr>
-                                <th>钱包地址</th>
-                                <th>是否已经签名</th>
-                                <th>签名时间</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {/* {wallets.map(wallet => (
-                                <tr key={wallet.address}>
-                                    <td>{wallet.address}</td>
-                                    <td>{wallet.signed ? "是" : "否"}</td>
-                                    <td>{wallet.signedAt ? new Date(wallet.signedAt).toLocaleString() : "-"}</td>
-                                </tr>
-                            ))} */}
-                        </tbody>
-                    </table>
-                    <button onClick={handleSign}>签名</button>
+                    <h4 className="text-lg font-semibold mt-6 mb-2">Signatures:</h4>
+                    {signatures[calldata.id] && signatures[calldata.id].length > 0 ? (
+                        signatures[calldata.id].map((sig,index) => (
+                            <div key={index} className="mb-4 p-4 border rounded">
+                                <p><strong>To:</strong> {sig.to}</p>
+                                <p><strong>Value:</strong> {sig.value}</p>
+                                <p><strong>Data:</strong> {sig.data}</p>
+                                <p><strong>Operation:</strong> {sig.operation}</p>
+                                <p><strong>Signature:</strong> {sig.signature}</p>
+                                <p><strong>Owner:</strong> {sig.owner}</p>
+                                <p><strong>Tx Data:</strong> {sig.txData}</p>
+                                <p><strong>Tx Hash:</strong> {sig.txHash}</p>
+                            </div>
+                        ))
+                    ) : (
+                        <p>No signatures yet.</p>
+                    )}
                 </div>
-            )}
-        </div>
+            ))} 
+         </div>
     );
 }
 
