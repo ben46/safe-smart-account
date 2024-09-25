@@ -1,46 +1,32 @@
-# Getting Started with Create React App
+# 前端
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+使用react, typescript进行开发
 
-## Available Scripts
+连接钱包使用`ethers`
 
-In the project directory, you can run:
+和后端通信使用restful, 格式是json
 
-### `npm start`
+# 首页
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+进入之后有两个大按钮, 我是老板, 我是技术
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+# 我是技术页面
+填写升级内容, 里面包含这几个字段: 
+- calldata(长文本输入框)
+- 升级内容(长文本输入框)
+- 版本号(字符串)
+- 提交人的邮箱
+- 提交人的名字
 
-### `npm test`
+# 我是老板页面
+老板通过下拉框选择升级内容(下拉框显示版本号, 默认选中一个), 选中之后显示刚刚技术团队填写的那些内容
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 当下拉框选中内容之后, 将会出现
 
-### `npm run build`
+一个列表, 列表里面有三列, 第一列是钱包地址, 第二列是是否已经签名, 第三列是签名时间
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+一个签名按钮, 点击签名按钮之后会弹出metamask钱包, 对calldata进行签名
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 当签名数量超过3个之后, 将显示
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+一个按钮, 设置定时任务, 是一个下拉的时间组件, 使用的是UTC+8的时间
