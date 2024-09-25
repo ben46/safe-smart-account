@@ -3,13 +3,37 @@ import { Router,Request,Response } from 'express';
 import { safeContract } from '../controllers/safeContract';
 import { ethers } from 'ethers';
 const router = Router();
-import { dbController, Transaction } from '../controllers/dbController';
+import { dbController,Transaction } from '../controllers/dbController';
 
 interface TransactionQuery {
     data: string;
     signature: string;
     owner: string;
 }  
+
+router.get('/sig/txhash/:txhash',async (req: Request,res: Response) => {
+    try {
+        const txhash = req.params.txhash;
+        const transactions = await dbController.getTransactionsByTxHash(txhash);
+        if (transactions) {
+            res.json(transactions);
+        } else {
+            res.status(404).json({ error: 'Transaction not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get transaction' });
+    }
+});
+
+router.get('/sig/all',async (req: Request,res: Response) => {
+    try {
+        const transactions = await dbController.getAllTransactions();
+        res.json(transactions);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get transactions' });
+    }
+});
+
 
 router.get('/sig/add',async (req,res) => {
 
