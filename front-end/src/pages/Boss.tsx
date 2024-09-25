@@ -4,17 +4,26 @@ import axios from 'axios';
 import Select from 'react-select';
 import { ethers } from 'ethers';
 
+import { Safe__factory } from '../typechain-types';
+import { multiSigWallet as multiSigWalletAddress } from '../../address.json';
+
+// 这里替换为你的合约地址和 ABI  
+const provider = ethers.getDefaultProvider() as ethers.providers.JsonRpcProvider;
+const contract = Safe__factory.connect(multiSigWalletAddress,provider.getSigner());
+const endPoint = 'http://localhost:3000';
+export { contract as safeContract };
+
 const Boss: React.FC = () => {
     const [upgrades,setUpgrades] = useState([]);
     const [selectedUpgrade,setSelectedUpgrade] = useState(null);
     const [wallets,setWallets] = useState([]);
 
     useEffect(() => {
-        // const fetchUpgrades = async () => {
-        //     const result = await axios.get('/api/upgrades'); // 假设后端提供这个接口
-        //     setUpgrades(result.data);
-        // };
-        // fetchUpgrades();
+        const fetchUpgrades = async () => {
+            const result = await axios.get(`${endPoint}/api/upgrade/all`); // 假设后端提供这个接口
+            setUpgrades(result.data);
+        };
+        fetchUpgrades();
     },[]);
 
     const handleSelectChange = (selectedOption: string) => {
@@ -23,7 +32,7 @@ const Boss: React.FC = () => {
     };
 
     const fetchWallets = async (version: string) => {
-        const result = await axios.get(`/api/wallets?version=${version}`); // 假设后端提供这个接口
+        const result = await axios.get(`${endPoint}/api/wallets?version=${version}`); // 假设后端提供这个接口
         setWallets(result.data);
     };
 
