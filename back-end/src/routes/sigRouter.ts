@@ -1,7 +1,7 @@
 import { Router,Request,Response } from 'express';
 
 import { safeContract } from '../controllers/safeContract';
-import { ethers } from 'ethers';
+import { BytesLike, ethers } from 'ethers';
 const router = Router();
 import { dbController,Transaction } from '../controllers/dbController';
 
@@ -9,7 +9,7 @@ interface TransactionQuery {
     data: string;
     signature: string;
     owner: string;
-}  
+}
 
 router.get('/sig/txhash/:txhash',async (req: Request,res: Response) => {
     try {
@@ -34,6 +34,44 @@ router.get('/sig/all',async (req: Request,res: Response) => {
     }
 });
 
+router.get('/sig/exec/txhash/:txhash',async (req: Request,res: Response) => {
+    try {
+        const txhash = req.query.txhash as string;
+        const transactions = await dbController.getTransactionsByTxHash(txhash);
+        if (transactions === undefined) {  
+            return res.status(404).json({ error: 'Transaction not found' });
+        }
+
+        const sigRequired = await safeContract.getThreshold();
+        const transaction = transactions[0];
+
+        const sigsArray: string[] = []
+        transactions.forEach(transaction => {
+            sigsArray.push(transaction.signature);
+        });
+
+        const sigs: BytesLike = convertSignaturesToByteLike(sigsArray);
+        if (transactions.length >= sigRequired) {
+            const tx = await safeContract.execTransaction(
+                transaction.to,
+                transaction.value,
+                transaction.data,
+                transaction.operation,
+                "0",
+                "0",
+                "0",
+                ethers.ZeroAddress,
+                ethers.ZeroAddress,
+                sigs
+            )
+            return res.json(tx);
+        } else {
+            return res.status(400).json({ error: 'Not enough signatures' });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to get transactions' });
+    }
+});
 
 router.get('/sig/add',async (req,res) => {
 
@@ -86,3 +124,32 @@ router.get('/sig/add',async (req,res) => {
 });
 
 export { router as sigRouter };  
+
+function convertSignaturesToByteLike(sigs: string[]): BytesLike {
+    let sigsBytes = "0x";
+
+    sigs.forEach(sig => {
+        // 移除 '0x' 前缀（如果存在）  
+        sig = sig.startsWith('0x') ? sig.slice(2) : sig;
+
+        // 确保签名长度正确（130个字符 = 65字节）  
+        if (sig.length !== 130) {
+            throw new Error(`Invalid signature length: ${sig}`);
+        }
+
+        // 提取 r, s, v  
+        const r = sig.slice(0,64);
+        const s = sig.slice(64,128);
+        const v = sig.slice(128);
+
+        // 按照合约期望的格式组合  
+        sigsBytes += r + s + v;
+    });
+
+    // 验证最终结果的长度  
+    if (sigsBytes.length !== 2 + sigs.length * 130) {
+        throw new Error("Invalid combined signatures length");
+    }
+
+    return sigsBytes;
+}

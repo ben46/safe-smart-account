@@ -57,7 +57,7 @@ class DbController {
     async getTransactionsByTxHash(txHash:string): Promise<Transaction[] | undefined> {
         if (!this.db) throw new Error('Database not initialized');
 
-        return this.db.get<Transaction[]>('SELECT * FROM transactions WHERE txHash = ?', txHash);
+        return this.db.get<Transaction[]>('SELECT * FROM transactions WHERE txHash = ? order by owner asc', txHash);
     }
 
     async getTransactionById(id: number): Promise<Transaction | undefined> {
