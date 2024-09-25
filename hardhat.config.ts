@@ -7,7 +7,7 @@ import "hardhat-deploy";
 import dotenv from "dotenv";
 import yargs from "yargs";
 import { getSingletonFactoryInfo } from "@safe-global/safe-singleton-factory";
-
+import "hardhat-abi-exporter"
 const argv = yargs
     .option("network", {
         type: "string",
