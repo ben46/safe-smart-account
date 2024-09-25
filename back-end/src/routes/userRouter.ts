@@ -28,7 +28,7 @@ const router = Router();
  *                   name:  
  *                     type: string  
  */
-router.get('/',(req,res) => {
+router.get('/users',(req,res) => {
     // 实现获取用户列表的逻辑  
     res.json([{ id: 1,name: 'John Doe' }]);
 });  
