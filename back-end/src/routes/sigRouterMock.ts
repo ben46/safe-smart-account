@@ -13,7 +13,7 @@ interface TransactionQuery {
 
 const mockTransactions: Transaction[] = [
     {
-        calldataId: '123',
+        calldataId: '1',
         to: '0x1234567890123456789012345678901234567890',
         value: '0',
         operation: '0',
@@ -24,7 +24,7 @@ const mockTransactions: Transaction[] = [
         txData: '0x1234567890'
     },
     {
-        calldataId: '456',
+        calldataId: '1',
         to: '0x0987654321098765432109876543210987654321',
         value: '0',
         operation: '0',

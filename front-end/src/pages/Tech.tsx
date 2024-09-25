@@ -17,8 +17,8 @@ const Tech: React.FC = () => {
 
     return (
         <div className="container">
-            <h1 className="title">SAHARA-AI合约升级</h1>
-            <h2 className="subtitle">升级内容填写(技术)</h2>
+            <h1 className="title">SAHARA-AI smart contracts upgrades</h1>
+            <h2 className="subtitle">for tech</h2>
             <textarea
                 placeholder="calldata"
                 value={calldata}
@@ -26,30 +26,30 @@ const Tech: React.FC = () => {
                 className="textarea-calldata"
             />
             <textarea
-                placeholder="升级内容"
+                placeholder="upgrade content"
                 value={upgradeContent}
                 onChange={(e) => setUpgradeContent(e.target.value)}
                 className="textarea-upgradeContent"
             />
             <input
                 type="text"
-                placeholder="版本号"
+                placeholder="version"
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
             />
             <input
                 type="email"
-                placeholder="提交人的邮箱"
+                placeholder="committer email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
             />
             <input
                 type="text"
-                placeholder="提交人的名字"
+                placeholder="commiter name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
             />
-            <button onClick={handleSubmit}>提交</button>
+            <button onClick={handleSubmit}>submit</button>
         </div>
     );
 }

@@ -6,10 +6,10 @@ const Home: React.FC = () => {
 
     return (
         <div>
-            <h2 style={{ textAlign: 'center' }}>Sahara-AI智能合约升级</h2>
+            <h2 style={{ textAlign: 'center' }}>Sahara-AI smart contracts upgrade</h2>
             <div style={{ display: 'flex',justifyContent: 'center' }}>
-                <button style={{ width: '300px',margin: '10px' }} onClick={() => navigate('/tech')}>我是技术</button>
-                <button style={{ width: '300px',margin: '10px' }} onClick={() => navigate('/boss')}>我是老板</button>
+                <button style={{ width: '300px',margin: '10px' }} onClick={() => navigate('/tech')}>I am tech</button>
+                <button style={{ width: '300px',margin: '10px' }} onClick={() => navigate('/boss')}>I am owner</button>
             </div>
         </div>
     );

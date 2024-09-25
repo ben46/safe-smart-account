@@ -3,8 +3,18 @@ import { swaggerUi,specs } from './swagger';
 import { sigRouter } from './routes/sigRouterMock';
 // import { calldataRouter } from './routes/calldataRouter';
 import { calldataRouter } from './routes/calldataRouterMock';
+
+import cors from 'cors';  
+
 const app = express();
 const port = 13000;
+
+const corsOptions: cors.CorsOptions = {
+    origin: '*',
+    optionsSuccessStatus: 200
+};  
+
+app.use(cors(corsOptions));  
 
 app.use('/api',sigRouter);
 app.use('/api',calldataRouter);

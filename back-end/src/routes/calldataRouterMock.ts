@@ -13,15 +13,15 @@ const mockCalldata = [
         submitterName: 'Mock User',
         createdAt: new Date().toUTCString(),
     },
-    {
-        id: '2',
-        calldata: 'mock calldata 2',
-        upgradeContent: 'mock upgrade content 2',
-        version: '2.0',
-        submitterEmail: 'mock2@example.com',
-        submitterName: 'Mock User 2',
-        createdAt: new Date().toUTCString(),
-    },
+    // {
+    //     id: '2',
+    //     calldata: 'mock calldata 2',
+    //     upgradeContent: 'mock upgrade content 2',
+    //     version: '2.0',
+    //     submitterEmail: 'mock2@example.com',
+    //     submitterName: 'Mock User 2',
+    //     createdAt: new Date().toUTCString(),
+    // },
 ];
 
 interface CalldataQuery {
