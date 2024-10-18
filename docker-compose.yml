@@ -1,0 +1,19 @@
+services:
+  backend:  
+    build:  
+      context: ./backend  
+      dockerfile: Dockerfile  
+    volumes:  
+      - ./backend:/usr/src/app  
+    ports:
+      - 13000:13000
+    environment:
+      RPC: ${RPC}  
+      MULTI_SIG_WALLET_ADDR: ${MULTI_SIG_WALLET_ADDR}  
+      PRIVATE_KEY: ${PRIVATE_KEY}  
+
+  # front-end:
+  #   image: ipfs/go-ipfs:latest
+  #   container_name: front-end
+  #   ports:
+  #     - 3000:3000

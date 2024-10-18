@@ -1,5 +1,4 @@
-
-# 后端
+# Backend
 
 ### signature/add
 
@@ -10,15 +9,15 @@
 - signature
 - owner
 
-接收到提交之后
+After receiving the submission
 
-从合约获取dataHash
+Retrieve dataHash from the contract
 
-从合约获取data
+Retrieve data from the contract
 
-调用`checkNSignatures(hash,data,signature,1)`, 通过存入数据库, 不通过返回错误
+Call `checkNSignatures(hash, data, signature, 1)`. If successful, store it in the database; if not, return an error.
 
-数据库存
+Database storage
 
 - to
 - value
@@ -27,19 +26,16 @@
 - signature
 - owner
 - txData
-- txHash(hash of txData)
-- id(auto increment)
+- txHash (hash of txData)
+- id (auto increment)
 
 ### signature/exec
 
-TODO 权限权限
+TODO: Permission management
 
 - txHash
 - execTimeStamp
 
-会从数据库中找出所有的签名order by owner asc, 获取合约上的`getThreshold`, 如果签名数量>threshold, 则插入数据库
+It will fetch all signatures from the database ordered by owner in ascending order, retrieve `getThreshold` from the contract, and if the number of signatures is greater than the threshold, it will insert into the database.
 
-写一个轮循, 一分钟轮循一次, 从数据库读取需要定时发布的升级任务
-
-
-
+Implement a loop that runs once a minute to read scheduled upgrade tasks from the database.

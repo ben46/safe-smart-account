@@ -1,32 +1,34 @@
-# 前端
+# Frontend
 
-使用react, typescript进行开发
+Develop using React and TypeScript.
 
-连接钱包使用`ethers`
+Connect the wallet using `ethers`.
 
-和后端通信使用restful, 格式是json
+Communicate with the backend using RESTful APIs, with the format as JSON.
 
-# 首页
+# Home Page
 
-进入之后有两个大按钮, 我是老板, 我是技术
+Upon entering, there are two large buttons: "I am the Boss" and "I am the Tech Person."
 
-# 我是技术页面
-填写升级内容, 里面包含这几个字段: 
-- calldata(长文本输入框)
-- 升级内容(长文本输入框)
-- 版本号(字符串)
-- 提交人的邮箱
-- 提交人的名字
+# I am the Tech Person Page
 
-# 我是老板页面
-老板通过下拉框选择升级内容(下拉框显示版本号, 默认选中一个), 选中之后显示刚刚技术团队填写的那些内容
+Fill in the upgrade details, which include the following fields:
+- calldata (long text input)
+- Upgrade content (long text input)
+- Version number (string)
+- Submitter's email
+- Submitter's name
 
-### 当下拉框选中内容之后, 将会出现
+# I am the Boss Page
 
-一个列表, 列表里面有三列, 第一列是钱包地址, 第二列是是否已经签名, 第三列是签名时间
+The boss selects the upgrade content from a dropdown (the dropdown displays version numbers, with one pre-selected). After selection, the details filled out by the tech team will be displayed.
 
-一个签名按钮, 点击签名按钮之后会弹出metamask钱包, 对calldata进行签名
+### After selecting an item from the dropdown, the following will appear:
 
-### 当签名数量超过3个之后, 将显示
+A list with three columns: the first column displays the wallet address, the second column shows whether it has been signed, and the third column shows the signing time.
 
-一个按钮, 设置定时任务, 是一个下拉的时间组件, 使用的是UTC+8的时间
+A sign button, which when clicked will pop up the MetaMask wallet to sign the calldata.
+
+### When the number of signatures exceeds three, the following will display:
+
+A button to set a scheduled task, which is a dropdown time component using UTC+8 time.
